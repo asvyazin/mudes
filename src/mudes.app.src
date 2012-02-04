@@ -1,0 +1,12 @@
+{application, mudes,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { mudes_app, []}},
+  {env, []}
+ ]}.
