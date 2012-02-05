@@ -2,6 +2,7 @@
 -behaviour(cowboy_protocol).
 
 -export([start_link/4]). %% API
+-export([init/4]).
 
 -record(state,
 	{
@@ -17,10 +18,11 @@ start_link(ListenerPid, Socket, Transport, Opts) ->
 
 %% @private
 -spec init(pid(), inet:socket(), module(), any()) -> ok.
-init(ListenerPid, Socket, Transport, Opts) ->
+init(ListenerPid, Socket, Transport, _Opts) ->
     ok = cowboy:accept_ack(ListenerPid),
     loop(#state{transport = Transport, socket = Socket}).
 
 loop(State = #state{socket = Socket, transport = Transport}) ->
     {ok, Data} = Transport:recv(Socket, 0),
-    Transport:send(Socket, Data).
+    Transport:send(Socket, Data),
+    loop(State).
