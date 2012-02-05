@@ -25,7 +25,7 @@ init(ListenerPid, Socket, Transport, _Opts) ->
 loop(State = #state{socket = Socket, transport = Transport, buffer = Buffer}) ->
     {ok, Data} = Transport:recv(Socket, 0),
     {ok, Rest} = process(Socket, Transport, <<Buffer/binary, Data/binary>>),
-    loop(State#{buffer = Rest}).
+    loop(State#state{buffer = Rest}).
 
 process(Socket, Transport, Buffer) ->
     Res = telnet:decode(Buffer),
