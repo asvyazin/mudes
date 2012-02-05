@@ -3,54 +3,50 @@
 -export([decode/1]).
 -include("telnet.hrl").
 
-decode(Data) ->
-    decode(Data, []).
-
-decode(<<?IAC, ?IAC, Rest/binary>>, L) ->
-    decode(Rest, [255 | L]);
-decode(<<?IAC, ?DO, C, Rest/binary>>, L) ->
-    {ok, parse_result(L, [{do, C}]), Rest};
-decode(<<?IAC, ?DONT, C, Rest/binary>>, L) ->
-    {ok, parse_result(L, [{dont, C}]), Rest};
-decode(<<?IAC, ?WILL, C, Rest/binary>>, L) ->
-    {ok, parse_result(L, [{will, C}]), Rest};
-decode(<<?IAC, ?WONT, C, Rest/binary>>, L) ->
-    {ok, parse_result(L, [{wont, C}]), Rest};
-decode(<<?IAC, C>> = Buf, L)
+decode(<<?IAC, ?IAC, Rest/binary>> = Data) ->
+    decode(Rest, [?IAC], Data);
+decode(<<?IAC, ?DO, C, Rest/binary>>) ->
+    {ok, {do, C}, Rest};
+decode(<<?IAC, ?DONT, C, Rest/binary>>) ->
+    {ok, {dont, C}, Rest};
+decode(<<?IAC, ?WILL, C, Rest/binary>>) ->
+    {ok, {will, C}, Rest};
+decode(<<?IAC, ?WONT, C, Rest/binary>>) ->
+    {ok, {wont, C}, Rest};
+decode(<<?IAC, C>> = Buf)
   when C == ?DO; C == ?DONT; C == ?WILL; C == ?WONT; C == ?SB ->
-    return_rest(L, Buf);
-decode(<<?IAC, ?SB, C, Rest/binary>> = Buf, L) ->
-    decode_sb(Rest, L, C, Buf, []);
-decode(<<?IAC, C, Rest/binary>>, L) ->
-    {ok, parse_result(L, [{command, C}]), Rest};
-decode(<<?CR, ?LF, Rest/binary>>, L) ->
-    return_rest(L, Rest);
-decode(<<?LF, ?CR, Rest/binary>>, L) ->
-    return_rest(L, Rest);
-decode(<<C, D, Rest/binary>>, L) when C == ?CR; C == ?LF ->
-    return_rest(L, <<D, Rest>>);
-decode(<<C>> = Buf, L) when C == ?CR; C == ?LF ->
-    return_rest(L, Buf);
-decode(<<C, Rest/binary>>, L) ->
-    decode(Rest, [C | L]).
+    {more, Buf};
+decode(<<?IAC, ?SB, C, Rest/binary>> = Buf) ->
+    decode_sb(Rest, C, Buf, []);
+decode(<<?IAC, C, Rest/binary>>) ->
+    {ok, {command, C}, Rest};
+decode(<<C, Rest/binary>>) when C == ?CR; C == ?LF ->
+    decode(Rest);
+decode(Data) ->
+    decode(Data, [], Data).
 
-decode_sb(<<?IAC, ?SE, Rest/binary>>, L, C, _, SBData) ->
-    {ok, parse_result(L, [{subnego, C, return_binary(SBData)}]), Rest};
-decode_sb(<<>>, L, _, Buf, _) ->
-    return_rest(L, Buf).
+decode(<<?IAC>>, _, Data) ->
+    {more, Data};
+decode(<<?IAC, ?IAC, Rest/binary>>, L, Data) ->
+    decode(Rest, [255 | L], Data);
+decode(<<?IAC, _Rest/binary>> = Buf, L, _Data) ->
+    {ok, return_text(L), Buf};
+decode(<<C, Rest/binary>>, L, _Data) when C == ?CR; C == ?LF ->
+    {ok, return_text(L), Rest};
+decode(<<C, Rest/binary>>, L, Data) ->
+    decode(Rest, [C | L], Data);
+decode(<<>> = Buf, L, _Data) ->
+    {ok, return_text(L), Buf}.
 
-parse_result([], Tail) ->
-    Tail;
-parse_result(L, Tail) ->
-    [return_text(L) | Tail].
+decode_sb(<<?IAC, ?SE, Rest/binary>>, C, _, SBData) ->
+    {ok, {subnego, C, return_binary(SBData)}, Rest};
+decode_sb(<<>>, _, Buf, _) ->
+    {more, Buf};
+decode_sb(<<D, Rest/binary>>, C, Buf, SBData) ->
+    decode_sb(Rest, C, Buf, [D | SBData]).
 
 return_text(L) ->
     {text, return_binary(L)}.
 
 return_binary(L) ->
     list_to_binary(lists:reverse(L)).
-
-return_rest([], Rest) ->
-    {more, Rest};
-return_rest(L, Rest) ->
-    {ok, return_text(L), Rest}.
