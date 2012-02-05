@@ -48,3 +48,23 @@ cr_test() ->
 cr2_test() ->
     Res = telnet:decode(<<"\x0dabc\x0ddef">>),
     ?assertMatch({ok, {text, <<"abc">>}, <<"def">>}, Res).
+
+encode_test() ->
+    Res = telnet:encode([{text, <<"abc">>}, {text, <<"def">>}]),
+    ?assertMatch({ok, <<"abc\r\ndef\r\n">>}, Res).
+
+encode_wont_test() ->
+    Res = telnet:encode([{text, <<"abc">>}, {wont, $c}]),
+    ?assertMatch({ok, <<"abc\r\n\xff\xfcc">>}, Res).
+
+encode_command_test() ->
+    Res = telnet:encode([{text, <<"abc">>}, {command, $c}]),
+    ?assertMatch({ok, <<"abc\r\n\xffc">>}, Res).
+
+encode_text_iac_test() ->
+    Res = telnet:encode([{text, <<"abc\xffdef">>}]),
+    ?assertMatch({ok, <<"abc\xff\xffdef\r\n">>}, Res).
+
+encode_sb_test() ->
+    Res = telnet:encode([{subnego, $c, <<"abc">>}]),
+    ?assertMatch({ok, <<"\xff\xfacabc\xff\xf0">>}, Res).

@@ -1,7 +1,38 @@
 -module(telnet).
 
--export([decode/1]).
+-export([decode/1, encode/1]).
 -include("telnet.hrl").
+
+encode(Input) ->
+    encode(Input, <<>>).
+
+encode([], Buffer) ->
+    {ok, Buffer};
+encode([{do, C} | Rest], Buffer) ->
+    encode(Rest, <<Buffer/binary, ?IAC, ?DO, C>>);
+encode([{dont, C} | Rest], Buffer) ->
+    encode(Rest, <<Buffer/binary, ?IAC, ?DONT, C>>);
+encode([{will, C} | Rest], Buffer) ->
+    encode(Rest, <<Buffer/binary, ?IAC, ?WILL, C>>);
+encode([{wont, C} | Rest], Buffer) ->
+    encode(Rest, <<Buffer/binary, ?IAC, ?WONT, C>>);
+encode([{command, C} | Rest], Buffer) ->
+    encode(Rest, <<Buffer/binary, ?IAC, C>>);
+encode([{subnego, C, Data} | Rest], Buffer) ->
+    encode(Rest, <<Buffer/binary, ?IAC, ?SB, C, Data/binary, ?IAC, ?SE>>);
+encode([{text, Text} | Rest], Buffer) ->
+    Text2 = double_iac(Text),
+    encode(Rest, <<Buffer/binary, Text2/binary, ?CR, ?LF>>).
+
+double_iac(Text) ->
+    double_iac(Text, <<>>).
+
+double_iac(<<>>, Buffer) ->
+    Buffer;
+double_iac(<<?IAC, Rest/binary>>, Buffer) ->
+    double_iac(Rest, <<Buffer/binary, ?IAC, ?IAC>>);
+double_iac(<<C, Rest/binary>>, Buffer) ->
+    double_iac(Rest, <<Buffer/binary, C>>).
 
 decode(<<?IAC, ?IAC, Rest/binary>> = Data) ->
     decode(Rest, [?IAC], Data);
