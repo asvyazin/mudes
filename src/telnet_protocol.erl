@@ -22,7 +22,28 @@ init(ListenerPid, Socket, Transport, _Opts) ->
     ok = cowboy:accept_ack(ListenerPid),
     loop(#state{transport = Transport, socket = Socket}).
 
-loop(State = #state{socket = Socket, transport = Transport}) ->
+loop(State = #state{socket = Socket, transport = Transport, buffer = Buffer}) ->
     {ok, Data} = Transport:recv(Socket, 0),
-    Transport:send(Socket, Data),
-    loop(State).
+    {ok, Rest} = process(Socket, Transport, <<Buffer/binary, Data/binary>>),
+    loop(State#{buffer = Rest}).
+
+process(Socket, Transport, Buffer) ->
+    Res = telnet:decode(Buffer),
+    process_telnet(Socket, Transport, Res).
+
+process_telnet(_Socket, _Transport, {more, Rest}) ->
+    {ok, Rest};
+process_telnet(Socket, Transport, {ok, {Cmd, C}, Rest})
+  when Cmd == do; Cmd == dont ->
+    SendData = telnet:encode([{wont, C}]),
+    Transport:send(SendData),
+    process(Socket, Transport, Rest);
+process_telnet(Socket, Transport, {ok, {Cmd, C}, Rest})
+  when Cmd == will; Cmd == wont ->
+    SendData = telnet:encode([{dont, C}]),
+    Transport:send(SendData),
+    process(Socket, Transport, Rest);
+process_telnet(Socket, Transport, {ok, {text, _} = Text, Rest}) ->
+    SendData = telnet:encode([Text]),
+    Transport:send(Socket, SendData),
+    process(Socket, Transport, Rest).
