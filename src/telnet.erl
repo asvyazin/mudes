@@ -34,6 +34,8 @@ double_iac(<<?IAC, Rest/binary>>, Buffer) ->
 double_iac(<<C, Rest/binary>>, Buffer) ->
     double_iac(Rest, <<Buffer/binary, C>>).
 
+decode(<<>>) ->
+    {more, <<>>};
 decode(<<?IAC, ?IAC, Rest/binary>> = Data) ->
     decode(Rest, [?IAC], Data);
 decode(<<?IAC, ?DO, C, Rest/binary>>) ->

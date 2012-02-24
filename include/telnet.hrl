@@ -7,3 +7,4 @@
 -define(SE, 240).
 -define(CR, 13).
 -define(LF, 10).
+-define(IP, 244).

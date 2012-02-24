@@ -68,3 +68,7 @@ encode_text_iac_test() ->
 encode_sb_test() ->
     Res = telnet:encode([{subnego, $c, <<"abc">>}]),
     ?assertMatch({ok, <<"\xff\xfacabc\xff\xf0">>}, Res).
+
+empty_test() ->
+    Res = telnet:decode(<<>>),
+    ?assertMatch({more, <<>>}, Res).
