@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -export([start_link/1, set_name/2, get_name/1, lookup_pid/1, get_id/1]).
--export([init/1, handle_cast/2, handle_call/3]).
+-export([init/1, handle_cast/2, handle_call/3, terminate/2]).
 
 -record(state, {id, name}).
 
@@ -32,3 +32,6 @@ handle_call(get_name, _From, State = #state{name = Name}) ->
     {reply, Name, State};
 handle_call(get_id, _From, State = #state{id = Id}) ->
     {reply, Id, State}.
+
+terminate(normal, _State) ->
+    ok.
