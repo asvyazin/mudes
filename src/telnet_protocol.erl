@@ -22,39 +22,25 @@ start_link(ListenerPid, Socket, Transport, Opts) ->
 -spec init(pid(), inet:socket(), module(), any()) -> ok.
 init(ListenerPid, Socket, Transport, _Opts) ->
     ok = cowboy:accept_ack(ListenerPid),
-    loop(#state{transport = Transport, socket = Socket}).
+    read_name(Socket, Transport).
 
-loop(State = #state{socket = Socket, transport = Transport, buffer = Buffer}) ->
-    {ok, Data} = Transport:recv(Socket, 0, infinity),
-    {ok, Rest} = process(Socket, Transport, <<Buffer/binary, Data/binary>>),
-    loop(State#state{buffer = Rest}).
+read_name(Socket, Transport) ->
+    ok = send_text(Socket, Transport, <<"What is your name?">>),
+    {ok, {text, Name}, Buffer} = next_token(Socket, Transport, <<>>),
+    io:format("name entered: ~p~n", [Name]),
+    ok = send_text(Socket, Transport, <<"Enter password:">>),
+    {ok, {text, Password}, _Buffer2} = next_token(Socket, Transport, Buffer),
+    io:format("password entered: ~p~n", [Password]).
 
-process(Socket, Transport, Buffer) ->
-    Res = telnet:decode(Buffer),
-    process_telnet(Socket, Transport, Res).
+send_text(Socket, Transport, Text) ->
+    {ok, Buffer} = telnet:encode([{text, Text}]),
+    Transport:send(Socket, Buffer).
 
-process_telnet(_Socket, _Transport, {more, Rest}) ->
-    {ok, Rest};
-process_telnet(Socket, Transport, {ok, {Cmd, C}, Rest})
-  when Cmd == do; Cmd == dont ->
-    io:format("received cmd ~p, ~p~n", [Cmd, C]),
-    {ok, SendData} = telnet:encode([{wont, C}]),
-    Transport:send(Socket, SendData),
-    process(Socket, Transport, Rest);
-process_telnet(Socket, Transport, {ok, {Cmd, C}, Rest})
-  when Cmd == will; Cmd == wont ->
-    io:format("received cmd ~p, ~p~n", [Cmd, C]),
-    {ok, SendData} = telnet:encode([{dont, C}]),
-    Transport:send(Socket, SendData),
-    process(Socket, Transport, Rest);
-process_telnet(Socket, Transport, {ok, {text, _} = Text, Rest}) ->
-    io:format("received: ~p~n", [Text]),
-    {ok, SendData} = telnet:encode([Text]),
-    Transport:send(Socket, SendData),
-    process(Socket, Transport, Rest);
-process_telnet(Socket, Transport, {ok, {command, ?IP}, _Rest}) ->
-    Transport:close(Socket),
-    {error, connection_closed};
-process_telnet(Socket, Transport, {ok, {command, C}, Rest}) ->
-    io:format("command received: ~p~n", [C]),
-    process(Socket, Transport, Rest).
+next_token(Socket, Transport, Buffer) ->
+    case telnet:decode(Buffer) of
+	{more, Rest} ->
+	    {ok, Data} = Transport:recv(Socket, 0, infinity),
+	    next_token(Socket, Transport, <<Rest/binary, Data/binary>>);
+	{ok, Token, Rest} ->
+	    {ok, Token, Rest}
+    end.
