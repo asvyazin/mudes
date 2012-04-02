@@ -6,13 +6,6 @@
 
 -include("telnet.hrl").
 
--record(state,
-	{
-	  transport :: module(),
-	  socket :: inet:socket(),
-	  buffer = <<>> :: binary()
-	}).
-
 -spec start_link(pid(), inet:socket(), module(), any()) -> {ok, pid()}.
 start_link(ListenerPid, Socket, Transport, Opts) ->
     Pid = spawn_link(?MODULE, init, [ListenerPid, Socket, Transport, Opts]),
@@ -22,25 +15,19 @@ start_link(ListenerPid, Socket, Transport, Opts) ->
 -spec init(pid(), inet:socket(), module(), any()) -> ok.
 init(ListenerPid, Socket, Transport, _Opts) ->
     ok = cowboy:accept_ack(ListenerPid),
-    read_name(Socket, Transport).
+    {ok, ConnPid} = mudes_connection:start_link(Socket, Transport),
+    ok = Transport:controlling_process(Socket, ConnPid),
+    read_name(ConnPid).
 
-read_name(Socket, Transport) ->
-    ok = send_text(Socket, Transport, <<"What is your name?">>),
-    {ok, {text, Name}, Buffer} = next_token(Socket, Transport, <<>>),
+read_name(ConnPid) ->
+    mudes_connection:send_text(ConnPid, <<"What is your name?">>),
+    {text, Name} = mudes_connection:next_token(ConnPid),
     io:format("name entered: ~p~n", [Name]),
-    ok = send_text(Socket, Transport, <<"Enter password:">>),
-    {ok, {text, Password}, _Buffer2} = next_token(Socket, Transport, Buffer),
-    io:format("password entered: ~p~n", [Password]).
-
-send_text(Socket, Transport, Text) ->
-    {ok, Buffer} = telnet:encode([{text, Text}]),
-    Transport:send(Socket, Buffer).
-
-next_token(Socket, Transport, Buffer) ->
-    case telnet:decode(Buffer) of
-	{more, Rest} ->
-	    {ok, Data} = Transport:recv(Socket, 0, infinity),
-	    next_token(Socket, Transport, <<Rest/binary, Data/binary>>);
-	{ok, Token, Rest} ->
-	    {ok, Token, Rest}
-    end.
+    mudes_connection:send_text(ConnPid, <<"Enter password:">>),
+    mudes_connection:send_will(ConnPid, ?ECHO),
+    {do, ?ECHO} = mudes_connection:next_token(ConnPid),
+    {text, Password} = mudes_connection:next_token(ConnPid),
+    mudes_connection:send_wont(ConnPid, ?ECHO),
+    {dont, ?ECHO} = mudes_connection:next_token(ConnPid),
+    io:format("password entered: ~p~n", [Password]),
+    mudes_connection:close(ConnPid).
