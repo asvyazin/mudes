@@ -1,24 +1,22 @@
 -module(mudes_connection).
 -behaviour(gen_server).
 
--export([start_link/2, next_token/1, send_text/2, send_dont/2, send_do/2, send_will/2, send_wont/2, close/1]).
--export([init/1, handle_call/3, handle_cast/2, terminate/2]).
+-export([start_link/3, send_text/2, send_dont/2, send_do/2, send_will/2, send_wont/2, close/1, listen/1]).
+-export([init/1, handle_cast/2, terminate/2, handle_info/2]).
 
 -record(state,
 	{
 	  transport :: module(),
 	  socket :: inet:socket(),
-	  buffer = <<>> :: binary()
+	  buffer = <<>> :: binary(),
+	  parent :: pid()
 	}).
 
-start_link(Socket, Transport) ->
-    gen_server:start_link(?MODULE, [Socket, Transport], []).
+start_link(Socket, Transport, Parent) ->
+    gen_server:start_link(?MODULE, [Socket, Transport, Parent], []).
 
-init([Socket, Transport]) ->
-    {ok, #state{transport = Transport, socket = Socket}}.
-
-next_token(Pid) ->
-    gen_server:call(Pid, next_token).
+init([Socket, Transport, Parent]) ->
+    {ok, #state{transport = Transport, socket = Socket, parent = Parent}}.
 
 send_text(Pid, Text) ->
     gen_server:cast(Pid, {send_text, Text}).
@@ -38,20 +36,8 @@ send_wont(Pid, Cmd) ->
 close(Pid) ->
     gen_server:cast(Pid, close).
 
-handle_call(next_token, _From, State = #state{transport = Transport,
-					      socket = Socket,
-					      buffer = Buffer}) ->
-    {ok, Token, Rest} = next_token(Socket, Transport, Buffer),
-    {reply, Token, State#state{buffer = Rest}}.
-
-next_token(Socket, Transport, Buffer) ->
-    case telnet:decode(Buffer) of
-	{more, Rest} ->
-	    {ok, Data} = Transport:recv(Socket, 0, infinity),
-	    next_token(Socket, Transport, <<Rest/binary, Data/binary>>);
-	{ok, Token, Rest} ->
-	    {ok, Token, Rest}
-    end.
+listen(Pid) ->
+    gen_server:cast(Pid, listen).
 
 handle_cast({send_text, Text}, State = #state{transport = Transport,
 					      socket = Socket}) ->
@@ -76,6 +62,10 @@ handle_cast({send_wont, Cmd}, State = #state{transport = Transport,
 handle_cast(close, State = #state{transport = Transport,
 				  socket = Socket}) ->
     ok = Transport:close(Socket),
+    {noreply, State};
+handle_cast(listen, State = #state{transport = Transport,
+				   socket = Socket}) ->
+    ok = Transport:setopts(Socket, [{active, once}]),
     {noreply, State}.
 
 encode_and_send(Socket, Transport, ToEncode) ->
@@ -84,3 +74,17 @@ encode_and_send(Socket, Transport, ToEncode) ->
 
 terminate(normal, _State) ->
     ok.
+
+handle_info({tcp, _Socket, Data}, State = #state{buffer = Buffer}) ->
+    decode_buffer(State#state{buffer = <<Buffer/binary, Data/binary>>}).
+
+decode_buffer(State = #state{buffer = Buffer, parent = Parent,
+			     transport = Transport, socket = Socket}) ->
+    case telnet:decode(Buffer) of
+	{more, Rest} ->
+	    Transport:setopts(Socket, [{active, once}]),
+	    {noreply, State#state{buffer = Rest}};
+	{ok, Token, Rest} ->
+	    Parent ! {token, Token},
+	    decode_buffer(State#state{buffer = Rest})
+    end.

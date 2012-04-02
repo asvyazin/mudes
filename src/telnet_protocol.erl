@@ -15,19 +15,22 @@ start_link(ListenerPid, Socket, Transport, Opts) ->
 -spec init(pid(), inet:socket(), module(), any()) -> ok.
 init(ListenerPid, Socket, Transport, _Opts) ->
     ok = cowboy:accept_ack(ListenerPid),
-    {ok, ConnPid} = mudes_connection:start_link(Socket, Transport),
+    {ok, ConnPid} = mudes_connection:start_link(Socket, Transport, self()),
     ok = Transport:controlling_process(Socket, ConnPid),
+    mudes_connection:listen(ConnPid),
     read_name(ConnPid).
 
 read_name(ConnPid) ->
     mudes_connection:send_text(ConnPid, <<"What is your name?">>),
-    {text, Name} = mudes_connection:next_token(ConnPid),
-    io:format("name entered: ~p~n", [Name]),
+    receive
+	{token, {text, Name}} ->
+	    io:format("name entered: ~p~n", [Name])
+    end,
     mudes_connection:send_text(ConnPid, <<"Enter password:">>),
     mudes_connection:send_will(ConnPid, ?ECHO),
-    {do, ?ECHO} = mudes_connection:next_token(ConnPid),
-    {text, Password} = mudes_connection:next_token(ConnPid),
+    receive
+	{token, {text, Password}} ->
+	    io:format("password entered: ~p~n", [Password])
+    end,
     mudes_connection:send_wont(ConnPid, ?ECHO),
-    {dont, ?ECHO} = mudes_connection:next_token(ConnPid),
-    io:format("password entered: ~p~n", [Password]),
     mudes_connection:close(ConnPid).
