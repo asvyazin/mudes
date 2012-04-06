@@ -55,7 +55,7 @@ existing_user(ConnPid, Name, PasswordHash) ->
     case crypto:sha(Password) of
 	PasswordHash ->
 	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
-	    main_loop(ConnPid);
+	    start_main_loop(ConnPid, Name);
 	_ ->
 	    mudes_connection:send_text(ConnPid, <<"Invalid password entered... Goodbye!">>),
 	    mudes_connection:close(ConnPid)
@@ -73,11 +73,15 @@ new_user(ConnPid, Name) ->
 	    NewUser = #users{name = Name, password_hash = PasswordHash},
 	    {atomic, ok} = mnesia:transaction(fun() -> mnesia:write(NewUser) end),
 	    mudes_connection:send_text(ConnPid, <<"User registered. Welcome, ", Name/binary>>),
-	    main_loop(ConnPid);
+	    start_main_loop(ConnPid, Name);
 	_ ->
 	    mudes_connection:send_text(ConnPid, <<"Password does not match... Goodbye!">>),
 	    mudes_connection:close(ConnPid)
     end.
+
+start_main_loop(ConnPid, Name) ->
+    mudes_users:add_user(Name, self()),
+    main_loop(ConnPid).
 
 main_loop(ConnPid) ->
     Text = receive_text(),
@@ -101,4 +105,20 @@ parse_command(Text) ->
     end.
 
 do_command(_ConnPid, <<"quit">>, _Args) ->
-    terminate.
+    terminate;
+do_command(ConnPid, <<"who">>, _Args) ->
+    {ok, Users} = mudes_users:get_users(),
+    mudes_connection:send_text(ConnPid, <<"Currently online:">>),
+    ok = display_who(ConnPid, Users),
+    Len = length(Users),
+    LenBin = list_to_binary(integer_to_list(Len)),
+    mudes_connection:send_text(ConnPid, <<LenBin/binary, " users">>);
+do_command(ConnPid, Cmd, _Args) ->
+    mudes_connection:send_text(ConnPid, <<"Unknown command: ", Cmd/binary>>),
+    ok.
+
+display_who(_ConnPid, []) ->
+    ok;
+display_who(ConnPid, [User | Rest]) ->
+    mudes_connection:send_text(ConnPid, User),
+    display_who(ConnPid, Rest).

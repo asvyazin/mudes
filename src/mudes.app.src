@@ -5,7 +5,9 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+		  crypto,
+		  mnesia
                  ]},
   {mod, { mudes_app, []}},
   {env, []}
