@@ -1,7 +1,8 @@
 -module(mudes_users).
 -behaviour(gen_server).
 
--export([start_link/0, add_user/2, get_users/0]).
+-export([start_link/0, add_user/2, get_users/0, get_pids/0,
+	 get_user_by_pid/1]).
 -export([init/1, handle_cast/2, handle_info/2, handle_call/3]).
 
 -record(state, {users = []}).
@@ -18,6 +19,12 @@ add_user(User, UserPid) ->
 get_users() ->
     gen_server:call(?MODULE, get_users).
 
+get_pids() ->
+    gen_server:call(?MODULE, get_pids).
+
+get_user_by_pid(Pid) ->
+    gen_server:call(?MODULE, {get_user, Pid}).
+
 handle_cast({add_user, User, UserPid}, State = #state{users = Users}) ->
     io:format("new user ~p from ~p~n", [User, UserPid]),
     erlang:monitor(process, UserPid),
@@ -30,4 +37,9 @@ handle_info({'DOWN', _Ref, process, Pid, _reason},
     {noreply, State#state{users = proplists:delete(Pid, Users)}}.
 
 handle_call(get_users, _From, State = #state{users = Users}) ->
-    {reply, {ok, [V || {_K, V} <- Users]}, State}.
+    {reply, {ok, [V || {_K, V} <- Users]}, State};
+handle_call(get_pids, _From, State = #state{users = Users}) ->
+    {reply, {ok, [K || {K, _V} <- Users]}, State};
+handle_call({get_user, Pid}, _From, State = #state{users = Users}) ->
+    User = proplists:get_value(Pid, Users),
+    {reply, {ok, User}, State}.

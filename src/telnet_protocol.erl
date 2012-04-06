@@ -80,7 +80,7 @@ new_user(ConnPid, Name) ->
     end.
 
 start_main_loop(ConnPid, Name) ->
-    mudes_users:add_user(Name, self()),
+    mudes_users:add_user(Name, ConnPid),
     main_loop(ConnPid).
 
 main_loop(ConnPid) ->
@@ -113,12 +113,24 @@ do_command(ConnPid, <<"who">>, _Args) ->
     Len = length(Users),
     LenBin = list_to_binary(integer_to_list(Len)),
     mudes_connection:send_text(ConnPid, <<LenBin/binary, " users">>);
+do_command(ConnPid, <<"say">>, Args) ->
+    {ok, Pids} = mudes_users:get_pids(),
+    {ok, User} = mudes_users:get_user_by_pid(ConnPid),
+    do_say(ConnPid, Args, Pids, User);
 do_command(ConnPid, Cmd, _Args) ->
-    mudes_connection:send_text(ConnPid, <<"Unknown command: ", Cmd/binary>>),
-    ok.
+    mudes_connection:send_text(ConnPid, <<"Unknown command: ", Cmd/binary>>).
 
 display_who(_ConnPid, []) ->
     ok;
 display_who(ConnPid, [User | Rest]) ->
     mudes_connection:send_text(ConnPid, User),
     display_who(ConnPid, Rest).
+
+do_say(ConnPid, Say, UserPids, User) ->
+    [do_say_to_user(ConnPid, UserPid, Say, User) || UserPid <- UserPids],
+    ok.
+
+do_say_to_user(ConnPid, ConnPid, Say, _User) ->
+    mudes_connection:send_text(ConnPid, <<"You say: ", Say/binary>>);
+do_say_to_user(_ConnPid, UserPid, Say, User) ->
+    mudes_connection:send_text(UserPid, <<User/binary, " says: ", Say/binary>>).
