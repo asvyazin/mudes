@@ -4,25 +4,23 @@
 -include("telnet.hrl").
 
 encode(Input) ->
-    encode(Input, <<>>).
+    {ok , [encode_chunk(Chunk) || Chunk <- Input]}.
 
-encode([], Buffer) ->
-    {ok, Buffer};
-encode([{do, C} | Rest], Buffer) ->
-    encode(Rest, <<Buffer/binary, ?IAC, ?DO, C>>);
-encode([{dont, C} | Rest], Buffer) ->
-    encode(Rest, <<Buffer/binary, ?IAC, ?DONT, C>>);
-encode([{will, C} | Rest], Buffer) ->
-    encode(Rest, <<Buffer/binary, ?IAC, ?WILL, C>>);
-encode([{wont, C} | Rest], Buffer) ->
-    encode(Rest, <<Buffer/binary, ?IAC, ?WONT, C>>);
-encode([{command, C} | Rest], Buffer) ->
-    encode(Rest, <<Buffer/binary, ?IAC, C>>);
-encode([{subnego, C, Data} | Rest], Buffer) ->
-    encode(Rest, <<Buffer/binary, ?IAC, ?SB, C, Data/binary, ?IAC, ?SE>>);
-encode([{text, Text} | Rest], Buffer) ->
+encode_chunk({do, C}) ->
+    <<?IAC, ?DO, C>>;
+encode_chunk({dont, C}) ->
+    <<?IAC, ?DONT, C>>;
+encode_chunk({will, C}) ->
+    <<?IAC, ?WILL, C>>;
+encode_chunk({wont, C}) ->
+    <<?IAC, ?WONT, C>>;
+encode_chunk({command, C}) ->
+    <<?IAC, C>>;
+encode_chunk({subnego, C, Data}) ->
+    <<?IAC, ?SB, C, Data/binary, ?IAC, ?SE>>;
+encode_chunk({text, Text}) ->
     Text2 = double_iac(Text),
-    encode(Rest, <<Buffer/binary, Text2/binary, ?CR, ?LF>>).
+    <<Text2/binary, ?CR, ?LF>>.
 
 double_iac(Text) ->
     double_iac(Text, <<>>).

@@ -1,7 +1,7 @@
 -module(mudes_connection).
 -behaviour(gen_server).
 
--export([start_link/3, send_text/2, send_dont/2, send_do/2, send_will/2, send_wont/2, close/1, listen/1]).
+-export([start_link/3, send_text/2, send_dont/2, send_do/2, send_will/2, send_wont/2, send_tokens/2, close/1, listen/1]).
 -export([init/1, handle_cast/2, terminate/2, handle_info/2]).
 
 -record(state,
@@ -33,6 +33,9 @@ send_will(Pid, Cmd) ->
 send_wont(Pid, Cmd) ->
     gen_server:cast(Pid, {send_wont, Cmd}).
 
+send_tokens(Pid, Tokens) ->
+    gen_server:cast(Pid, {send_tokens, Tokens}).
+
 close(Pid) ->
     gen_server:cast(Pid, close).
 
@@ -58,6 +61,10 @@ handle_cast({send_will, Cmd}, State = #state{transport = Transport,
 handle_cast({send_wont, Cmd}, State = #state{transport = Transport,
 					     socket = Socket}) ->
     ok = encode_and_send(Socket, Transport, [{wont, Cmd}]),
+    {noreply, State};
+handle_cast({send_tokens, Tokens}, State = #state{transport = Transport,
+						  socket = Socket}) ->
+    ok = encode_and_send(Socket, Transport, Tokens),
     {noreply, State};
 handle_cast(close, State = #state{transport = Transport,
 				  socket = Socket}) ->

@@ -48,8 +48,8 @@ read_name(ConnPid) ->
     end.
 
 existing_user(ConnPid, Name, PasswordHash) ->
-    mudes_connection:send_text(ConnPid, <<"Enter your password:">>),
-    mudes_connection:send_will(ConnPid, ?ECHO),
+    mudes_connection:send_tokens(ConnPid, [{text, <<"Enter your password:">>},
+					   {will, ?ECHO}]),
     Password = receive_text(),
     mudes_connection:send_wont(ConnPid, ?ECHO),
     case crypto:sha(Password) of
@@ -62,8 +62,8 @@ existing_user(ConnPid, Name, PasswordHash) ->
     end.
 
 new_user(ConnPid, Name) ->
-    mudes_connection:send_text(ConnPid, <<"Will register new user. Enter password:">>),
-    mudes_connection:send_will(ConnPid, ?ECHO),
+    mudes_connection:send_tokens(ConnPid, [{text, <<"Will register new user. Enter password:">>},
+					   {will, ?ECHO}]),
     Password = receive_text(),
     mudes_connection:send_text(ConnPid, <<"Confirm password:">>),
     case receive_text() of
