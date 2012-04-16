@@ -26,14 +26,15 @@ get_user_by_pid(Pid) ->
     gen_server:call(?MODULE, {get_user, Pid}).
 
 handle_cast({add_user, User, UserPid}, State = #state{users = Users}) ->
-    io:format("new user ~p from ~p~n", [User, UserPid]),
-    erlang:monitor(process, UserPid),
+    lager:info("new user ~p from ~p~n", [User, UserPid]),
+    Ref = erlang:monitor(process, UserPid),
+    lager:info("monitor ref: ~p, current pid: ~p~n", [Ref, self()]),
     {noreply, State#state{users = [{UserPid, User} | Users]}}.
 
-handle_info({'DOWN', _Ref, process, Pid, _reason},
+handle_info({'DOWN', _Ref, process, Pid, _Reason},
 	    State = #state{users = Users}) ->
     Name = proplists:get_value(Pid, Users),
-    io:format("user ~p disconnected~n", [Name]),
+    lager:info("user ~p disconnected~n", [Name]),
     {noreply, State#state{users = proplists:delete(Pid, Users)}}.
 
 handle_call(get_users, _From, State = #state{users = Users}) ->

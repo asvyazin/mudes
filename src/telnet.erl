@@ -3,22 +3,21 @@
 -export([decode/1, encode/1]).
 -include("telnet.hrl").
 
-encode(Input) ->
-    {ok , [encode_chunk(Chunk) || Chunk <- Input]}.
-
-encode_chunk({do, C}) ->
+encode(Input) when is_list(Input) ->
+    [encode(Chunk) || Chunk <- Input];
+encode({do, C}) ->
     <<?IAC, ?DO, C>>;
-encode_chunk({dont, C}) ->
+encode({dont, C}) ->
     <<?IAC, ?DONT, C>>;
-encode_chunk({will, C}) ->
+encode({will, C}) ->
     <<?IAC, ?WILL, C>>;
-encode_chunk({wont, C}) ->
+encode({wont, C}) ->
     <<?IAC, ?WONT, C>>;
-encode_chunk({command, C}) ->
+encode({command, C}) ->
     <<?IAC, C>>;
-encode_chunk({subnego, C, Data}) ->
+encode({subnego, C, Data}) ->
     <<?IAC, ?SB, C, Data/binary, ?IAC, ?SE>>;
-encode_chunk({text, Text}) ->
+encode({text, Text}) ->
     Text2 = double_iac(Text),
     <<Text2/binary, ?CR, ?LF>>.
 

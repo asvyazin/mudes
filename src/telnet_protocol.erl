@@ -108,23 +108,18 @@ do_command(_ConnPid, <<"quit">>, _Args) ->
     terminate;
 do_command(ConnPid, <<"who">>, _Args) ->
     {ok, Users} = mudes_users:get_users(),
-    mudes_connection:send_text(ConnPid, <<"Currently online:">>),
-    ok = display_who(ConnPid, Users),
     Len = length(Users),
     LenBin = list_to_binary(integer_to_list(Len)),
-    mudes_connection:send_text(ConnPid, <<LenBin/binary, " users">>);
+    UsersTokens = [{text, U} || U <- Users],
+    Tokens = [{text, <<"Currently online:">>}, UsersTokens, 
+	      {text, <<LenBin/binary, " users">>}],
+    mudes_connection:send_tokens(ConnPid, Tokens);
 do_command(ConnPid, <<"say">>, Args) ->
     {ok, Pids} = mudes_users:get_pids(),
     {ok, User} = mudes_users:get_user_by_pid(ConnPid),
     do_say(ConnPid, Args, Pids, User);
 do_command(ConnPid, Cmd, _Args) ->
     mudes_connection:send_text(ConnPid, <<"Unknown command: ", Cmd/binary>>).
-
-display_who(_ConnPid, []) ->
-    ok;
-display_who(ConnPid, [User | Rest]) ->
-    mudes_connection:send_text(ConnPid, User),
-    display_who(ConnPid, Rest).
 
 do_say(ConnPid, Say, UserPids, User) ->
     [do_say_to_user(ConnPid, UserPid, Say, User) || UserPid <- UserPids],

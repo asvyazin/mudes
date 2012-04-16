@@ -69,14 +69,14 @@ handle_cast({send_tokens, Tokens}, State = #state{transport = Transport,
 handle_cast(close, State = #state{transport = Transport,
 				  socket = Socket}) ->
     ok = Transport:close(Socket),
-    {noreply, State};
+    {stop, normal, State};
 handle_cast(listen, State = #state{transport = Transport,
 				   socket = Socket}) ->
     ok = Transport:setopts(Socket, [{active, once}]),
     {noreply, State}.
 
 encode_and_send(Socket, Transport, ToEncode) ->
-    {ok, Send} = telnet:encode(ToEncode),
+    Send = telnet:encode(ToEncode),
     Transport:send(Socket, Send).
 
 terminate(normal, _State) ->
