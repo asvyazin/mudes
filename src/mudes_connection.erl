@@ -1,7 +1,8 @@
 -module(mudes_connection).
+-author('Alexander Svyazin <guybrush@live.ru>').
 -behaviour(gen_server).
 
--export([start_link/3, send_text/2, send_dont/2, send_do/2, send_will/2, send_wont/2, send_tokens/2, close/1, listen/1]).
+-export([start_link/3, start/4, send_text/2, send_dont/2, send_do/2, send_will/2, send_wont/2, send_tokens/2, close/1, listen/1]).
 -export([init/1, handle_cast/2, terminate/2, handle_info/2]).
 
 -record(state,
@@ -11,6 +12,15 @@
 	  buffer = <<>> :: binary(),
 	  parent :: pid()
 	}).
+
+start(Socket, Transport, Parent, SupRef) ->
+    ChildSpec = {{mudes_connection, SupRef},
+		 {mudes_connection, start_link, [Socket, Transport, Parent]},
+		 temporary,
+		 5000,
+		 worker,
+		 [mudes_connection]},
+    supervisor:start_child(SupRef, ChildSpec).
 
 start_link(Socket, Transport, Parent) ->
     gen_server:start_link(?MODULE, [Socket, Transport, Parent], []).

@@ -1,4 +1,5 @@
 -module(mudes_users).
+-author('Alexander Svyazin <guybrush@live.ru>').
 -behaviour(gen_server).
 
 -export([start_link/0, add_user/2, get_users/0, get_pids/0,

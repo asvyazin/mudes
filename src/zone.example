@@ -1,0 +1,2 @@
+{zone, "Example", "Guybrush", "Example zone",
+ [{room, 1, "Room 1", "Room 1 description", []}]}.
