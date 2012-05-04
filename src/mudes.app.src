@@ -7,7 +7,8 @@
                   kernel,
                   stdlib,
 		  crypto,
-		  mnesia
+		  mnesia,
+		  cowboy
                  ]},
   {mod, { mudes_app, []}},
   {env, []}
