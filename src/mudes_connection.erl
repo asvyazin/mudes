@@ -87,6 +87,7 @@ handle_cast(listen, State = #state{transport = Transport,
 
 encode_and_send(Socket, Transport, ToEncode) ->
     Send = telnet:encode(ToEncode),
+    lager:debug("will send: ~p", [Send]),
     Transport:send(Socket, Send).
 
 terminate(normal, _State) ->

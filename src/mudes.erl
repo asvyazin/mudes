@@ -4,7 +4,10 @@
 -export([start/0]).
 
 start() ->
+    application:start(compiler),
+    application:start(syntax_tools),
     application:start(crypto),
+    application:start(lager),
     application:start(mnesia),
     application:start(cowboy),
     application:start(mudes),
