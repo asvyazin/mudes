@@ -106,29 +106,3 @@ parse_command(Text) ->
 	[Cmd] ->
 	    {ok, Cmd, <<>>}
     end.
-
-do_command(_ConnPid, <<"quit">>, _Args) ->
-    terminate;
-do_command(ConnPid, <<"who">>, _Args) ->
-    {ok, Users} = mudes_users:get_users(),
-    Len = length(Users),
-    LenBin = list_to_binary(integer_to_list(Len)),
-    UsersTokens = [{text, U} || U <- Users],
-    Tokens = [{text, <<"Currently online:">>}, UsersTokens, 
-	      {text, <<LenBin/binary, " users">>}],
-    mudes_connection:send_tokens(ConnPid, Tokens);
-do_command(ConnPid, <<"say">>, Args) ->
-    {ok, Pids} = mudes_users:get_pids(),
-    {ok, User} = mudes_users:get_user_by_pid(ConnPid),
-    do_say(ConnPid, Args, Pids, User);
-do_command(ConnPid, Cmd, _Args) ->
-    mudes_connection:send_text(ConnPid, <<"Unknown command: ", Cmd/binary>>).
-
-do_say(ConnPid, Say, UserPids, User) ->
-    [do_say_to_user(ConnPid, UserPid, Say, User) || UserPid <- UserPids],
-    ok.
-
-do_say_to_user(ConnPid, ConnPid, Say, _User) ->
-    mudes_connection:send_text(ConnPid, <<"You say: ", Say/binary>>);
-do_say_to_user(_ConnPid, UserPid, Say, User) ->
-    mudes_connection:send_text(UserPid, <<User/binary, " says: ", Say/binary>>).
