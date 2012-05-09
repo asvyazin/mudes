@@ -65,8 +65,8 @@ decode(<<C, Rest/binary>>, L, _Data) when C == ?CR; C == ?LF ->
     {ok, return_text(L), Rest};
 decode(<<C, Rest/binary>>, L, Data) ->
     decode(Rest, [C | L], Data);
-decode(<<>> = Buf, L, _Data) ->
-    {ok, return_text(L), Buf}.
+decode(<<>>, _L, Data) ->
+    {more, Data}.
 
 decode_sb(<<?IAC, ?SE, Rest/binary>>, C, _, SBData) ->
     {ok, {subnego, C, return_binary(SBData)}, Rest};

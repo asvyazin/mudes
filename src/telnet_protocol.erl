@@ -13,19 +13,9 @@ start_link(ListenerPid, Socket, Transport, Opts) ->
     Pid = spawn_link(?MODULE, init, [ListenerPid, Socket, Transport, Opts]),
     {ok, Pid}.
 
-%% @private
-create_tables() ->
-    mnesia:create_table(users, [{disc_copies, node()},
-				{attributes, record_info(fields, users)}]).
-
-ensure_loaded() ->
-    ok = mnesia:wait_for_tables([users], 60000).
-
 -spec init(pid(), inet:socket(), module(), any()) -> ok.
 init(ListenerPid, Socket, Transport, _Opts) ->
     ok = cowboy:accept_ack(ListenerPid),
-    create_tables(),
-    ensure_loaded(),
     {ok, ConnSupRef} = supervisor:start_child(mudes_connections_sup, []),
     {ok, ConnPid} = mudes_connection:start(Socket, Transport, self(), ConnSupRef),
     ok = Transport:controlling_process(Socket, ConnPid),
@@ -40,25 +30,24 @@ receive_text() ->
 read_name(ConnPid, ConnSupRef) ->
     mudes_connection:send_text(ConnPid, <<"What is your name?">>),
     Name = receive_text(),
-    {atomic, Users} = mnesia:transaction(
-			fun() -> mnesia:read({users, Name}) end),
-    case Users of
-	[] ->
-	    new_user(ConnPid, Name, ConnSupRef);
-	[#users{name = Name, password_hash = PasswordHash}] ->
-	    existing_user(ConnPid, Name, PasswordHash, ConnSupRef)
+    lager:debug("login: ~p", [Name]),
+    case mudes_users_db:exists(Name) of
+	true ->
+	    existing_user(ConnPid, Name, ConnSupRef);
+	false ->
+	    new_user(ConnPid, Name, ConnSupRef)
     end.
 
-existing_user(ConnPid, Name, PasswordHash, ConnSupRef) ->
+existing_user(ConnPid, Name, ConnSupRef) ->
     mudes_connection:send_tokens(ConnPid, [{text, <<"Enter your password:">>},
 					   {will, ?ECHO}]),
     Password = receive_text(),
     mudes_connection:send_wont(ConnPid, ?ECHO),
-    case crypto:sha(Password) of
-	PasswordHash ->
+    case mudes_users_db:check_password(Name, Password) of
+	true ->
 	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
 	    start_main_loop(ConnPid, Name, ConnSupRef);
-	_ ->
+	false ->
 	    mudes_connection:send_text(ConnPid, <<"Invalid password entered... Goodbye!">>),
 	    mudes_connection:close(ConnPid)
     end.
@@ -71,9 +60,7 @@ new_user(ConnPid, Name, ConnSupRef) ->
     case receive_text() of
 	Password ->
 	    mudes_connection:send_wont(ConnPid, ?ECHO),
-	    PasswordHash = crypto:sha(Password),
-	    NewUser = #users{name = Name, password_hash = PasswordHash},
-	    {atomic, ok} = mnesia:transaction(fun() -> mnesia:write(NewUser) end),
+	    ok = mudes_users_db:add(Name, Password),
 	    mudes_connection:send_text(ConnPid, <<"User registered. Welcome, ", Name/binary>>),
 	    start_main_loop(ConnPid, Name, ConnSupRef);
 	_ ->

@@ -7,9 +7,9 @@
                   kernel,
                   stdlib,
 		  crypto,
-		  mnesia,
 		  cowboy,
-		  lager
+		  lager,
+		  mongodb
                  ]},
   {mod, { mudes_app, []}},
   {env, []}
