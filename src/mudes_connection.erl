@@ -2,31 +2,27 @@
 -author('Alexander Svyazin <guybrush@live.ru>').
 -behaviour(gen_server).
 
--export([start_link/3, start/4, send_text/2, send_dont/2, send_do/2, send_will/2, send_wont/2, send_tokens/2, close/1, listen/1]).
--export([init/1, handle_cast/2, terminate/2, handle_info/2]).
+-export([start_link/2, start/2, send_text/2, send_dont/2, send_do/2, send_will/2,
+	 send_wont/2, send_tokens/2, close/1, token/2]).
+-export([init/1, handle_cast/2, terminate/2]).
 
--record(state,
-	{
-	  transport :: module(),
-	  socket :: inet:socket(),
-	  buffer = <<>> :: binary(),
-	  parent :: pid()
-	}).
+-record(state, {parent, fsm_pid}).
 
-start(Socket, Transport, Parent, SupRef) ->
+start(Parent, SupRef) ->
     ChildSpec = {{mudes_connection, SupRef},
-		 {mudes_connection, start_link, [Socket, Transport, Parent]},
+		 {mudes_connection, start_link, [Parent, SupRef]},
 		 temporary,
 		 5000,
 		 worker,
 		 [mudes_connection]},
     supervisor:start_child(SupRef, ChildSpec).
 
-start_link(Socket, Transport, Parent) ->
-    gen_server:start_link(?MODULE, [Socket, Transport, Parent], []).
+start_link(Parent, SupRef) ->
+    gen_server:start_link(?MODULE, [Parent, SupRef], []).
 
-init([Socket, Transport, Parent]) ->
-    {ok, #state{transport = Transport, socket = Socket, parent = Parent}}.
+init([Parent, SupRef]) ->
+    {ok, Fsm} = mudes_connection_fsm:start(self(), SupRef),
+    {ok, #state{parent = Parent, fsm_pid = Fsm}}.
 
 send_text(Pid, Text) ->
     gen_server:cast(Pid, {send_text, Text}).
@@ -49,59 +45,37 @@ send_tokens(Pid, Tokens) ->
 close(Pid) ->
     gen_server:cast(Pid, close).
 
-listen(Pid) ->
-    gen_server:cast(Pid, listen).
+token(Pid, Token) ->
+    gen_server:cast(Pid, {token, Token}).
 
-handle_cast({send_text, Text}, State = #state{transport = Transport,
-					      socket = Socket}) ->
-    ok = encode_and_send(Socket, Transport, [{text, Text}]),
+handle_cast({send_text, Text}, State = #state{parent=Parent}) ->
+    ok = encode_and_send(Parent, [{text, Text}]),
     {noreply, State};
-handle_cast({send_dont, Cmd}, State = #state{transport = Transport,
-					     socket = Socket}) ->
-    ok = encode_and_send(Socket, Transport, [{dont, Cmd}]),
+handle_cast({send_dont, Cmd}, State = #state{parent=Parent}) ->
+    ok = encode_and_send(Parent, [{dont, Cmd}]),
     {noreply, State};
-handle_cast({send_do, Cmd}, State = #state{transport = Transport,
-					   socket = Socket}) ->
-    ok = encode_and_send(Socket, Transport, [{do, Cmd}]),
+handle_cast({send_do, Cmd}, State = #state{parent=Parent}) ->
+    ok = encode_and_send(Parent, [{do, Cmd}]),
     {noreply, State};
-handle_cast({send_will, Cmd}, State = #state{transport = Transport,
-					     socket = Socket}) ->
-    ok = encode_and_send(Socket, Transport, [{will, Cmd}]),
+handle_cast({send_will, Cmd}, State = #state{parent=Parent}) ->
+    ok = encode_and_send(Parent, [{will, Cmd}]),
     {noreply, State};
-handle_cast({send_wont, Cmd}, State = #state{transport = Transport,
-					     socket = Socket}) ->
-    ok = encode_and_send(Socket, Transport, [{wont, Cmd}]),
+handle_cast({send_wont, Cmd}, State = #state{parent=Parent}) ->
+    ok = encode_and_send(Parent, [{wont, Cmd}]),
     {noreply, State};
-handle_cast({send_tokens, Tokens}, State = #state{transport = Transport,
-						  socket = Socket}) ->
-    ok = encode_and_send(Socket, Transport, Tokens),
+handle_cast({send_tokens, Tokens}, State = #state{parent=Parent}) ->
+    ok = encode_and_send(Parent, Tokens),
     {noreply, State};
-handle_cast(close, State = #state{transport = Transport,
-				  socket = Socket}) ->
-    ok = Transport:close(Socket),
-    {stop, normal, State};
-handle_cast(listen, State = #state{transport = Transport,
-				   socket = Socket}) ->
-    ok = Transport:setopts(Socket, [{active, once}]),
-    {noreply, State}.
+handle_cast({token, Token}, State = #state{fsm_pid=Fsm}) ->
+    mudes_connection_fsm:token(Fsm, Token),
+    {noreply, State};
+handle_cast(close, State = #state{parent=Parent}) ->
+    Parent ! close,
+    {stop, normal, State}.
 
-encode_and_send(Socket, Transport, ToEncode) ->
+encode_and_send(Parent, ToEncode) ->
     Send = telnet:encode(ToEncode),
-    Transport:send(Socket, Send).
+    Parent ! {send,  Send}.
 
 terminate(normal, _State) ->
     ok.
-
-handle_info({tcp, _Socket, Data}, State = #state{buffer = Buffer}) ->
-    decode_buffer(State#state{buffer = <<Buffer/binary, Data/binary>>}).
-
-decode_buffer(State = #state{buffer = Buffer, parent = Parent,
-			     transport = Transport, socket = Socket}) ->
-    case telnet:decode(Buffer) of
-	{more, Rest} ->
-	    Transport:setopts(Socket, [{active, once}]),
-	    {noreply, State#state{buffer = Rest}};
-	{ok, Token, Rest} ->
-	    Parent ! {token, Token},
-	    decode_buffer(State#state{buffer = Rest})
-    end.
