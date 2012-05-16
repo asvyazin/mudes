@@ -8,25 +8,28 @@
 
 %% gen_fsm callbacks
 -export([init/1, connected/2, wait_password_existing/2, wait_password_new/2,
-	 wait_password_new2/2, authenticated/2]).
+	 wait_password_new2/2, authenticated/2, terminate/3]).
 
--record(state, {conn, name, password_hash}).
+-record(state, {protocol, name, password_hash}).
 
-start(ConnPid, SupRef) ->
+start(ProtocolPid, SupRef) ->
     ChildSpec = {{?MODULE, SupRef},
-		 {?MODULE, start_link, [ConnPid]},
+		 {?MODULE, start_link, [ProtocolPid]},
 		 temporary,
 		 5000,
 		 worker,
 		 [?MODULE]},
     supervisor:start_child(SupRef, ChildSpec).
 
-start_link(ConnPid) ->
-    gen_fsm:start_link(?MODULE, [ConnPid], []).
+start_link(ProtocolPid) ->
+    gen_fsm:start_link(?MODULE, [ProtocolPid], []).
 
-init([ConnPid]) ->
-    mudes_connection:send_text(ConnPid, <<"What is your name?">>),
-    {ok, connected, #state{conn = ConnPid}}.
+init([ProtocolPid]) ->
+    telnet_protocol:send_text(ProtocolPid, <<"What is your name?">>),
+    {ok, connected, #state{protocol = ProtocolPid}}.
+
+terminate(normal, _StateName, _State) ->
+    ok.
 
 token(Pid, {text, Text}) ->
     text(Pid, Text);
@@ -63,42 +66,41 @@ connected({text, Name}, State) ->
 	    new_user(Name, State)
     end.
 
-existing_user(Name, State = #state{conn = ConnPid}) ->
-    mudes_connection:send_text(ConnPid, <<"Enter your password:">>),
+existing_user(Name, State = #state{protocol = Protocol}) ->
+    telnet_protocol:send_text(Protocol, <<"Enter your password:">>),
     {next_state, wait_password_existing, State#state{name = Name}}.
 
-wait_password_existing({text, Password}, State = #state{conn = ConnPid, name = Name}) ->
+wait_password_existing({text, Password}, State = #state{protocol = Protocol, name = Name}) ->
     case mudes_users_db:check_password(Name, Password) of
 	true ->
-	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
-	    mudes_users:add_user(Name, ConnPid),
+	    telnet_protocol:send_text(Protocol, <<"Welcome, ", Name/binary>>),
+	    mudes_users:add_user(Name, Protocol),
 	    {next_state, authenticated, State};
 	false ->
-	    mudes_connection:send_text(ConnPid, <<"Invalid password, bye!">>),
+	    telnet_protocol:send_text(Protocol, <<"Invalid password, bye!">>),
 	    {stop, invalid_password, State}
     end.
 
-new_user(Name, State = #state{conn = ConnPid}) ->
-    mudes_connection:send_text(
-      ConnPid, <<"Will register new user. Enter your password:">>),
+new_user(Name, State = #state{protocol = Protocol}) ->
+    telnet_protocol:send_text(Protocol, <<"Will register new user. Enter your password:">>),
     {next_state, wait_password_new, State#state{name = Name}}.
 
-wait_password_new({text, Password}, State = #state{conn = ConnPid}) ->
+wait_password_new({text, Password}, State = #state{protocol = Protocol}) ->
     PasswordHash = crypto:md5(Password),
-    mudes_connection:send_text(ConnPid, <<"Confirm password:">>),
+    telnet_protocol:send_text(Protocol, <<"Confirm password:">>),
     {next_state, wait_password_new2, State#state{password_hash = PasswordHash}}.
 
 wait_password_new2({text, Password},
-		   State = #state{conn = ConnPid,
+		   State = #state{protocol = Protocol,
 				  name = Name,
 				  password_hash = PasswordHash}) ->
     case crypto:md5(Password) of
 	PasswordHash ->
-	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
-	    mudes_users:add_user(Name, ConnPid),
+	    telnet_protocol:send_text(Protocol, <<"Welcome, ", Name/binary>>),
+	    mudes_users:add_user(Name, Protocol),
 	    {next_state, authenticated, State};
 	_ ->
-	    mudes_connection:send_text(ConnPid, <<"Password does not match, bye!">>),
+	    telnet_protocol:send_text(Protocol, <<"Password does not match, bye!">>),
 	    {stop, password_does_not_match, State}
     end.
 
@@ -114,33 +116,33 @@ parse_command(Text) ->
 	    {ok, Cmd, <<>>}
     end.
 
-process_command(<<"quit">>, _, State = #state{conn = ConnPid, name = Name})->
-    mudes_connection:send_text(ConnPid, <<"Goodbye, ", Name/binary>>),
-    mudes_connection:close(),
+process_command(<<"quit">>, _, State = #state{protocol = Protocol, name = Name})->
+    telnet_protocol:send_text(Protocol, <<"Goodbye, ", Name/binary>>),
+    telnet_protocol:close(Protocol),
     {stop, normal, State};
-process_command(<<"who">>, _, State = #state{conn = ConnPid}) ->
+process_command(<<"who">>, _, State = #state{protocol = Protocol}) ->
     {ok, Users} = mudes_users:get_users(),
     Len = length(Users),
     LenBin = list_to_binary(integer_to_list(Len)),
     UsersTokens = [{text, U} || U <- Users],
     Tokens = [{text, <<"Currently online:">>}, UsersTokens,
 	      {text, <<LenBin/binary, " users">>}],
-    mudes_connection:send_tokens(ConnPid, Tokens),
+    telnet_protocol:send_tokens(Protocol, Tokens),
     {next_state, authenticated, State};
-process_command(<<"say">>, Say, State = #state{conn = ConnPid}) ->
+process_command(<<"say">>, Say, State = #state{protocol = Protocol}) ->
     {ok, UserPids} = mudes_users:get_pids(),
-    {ok, User} = mudes_users:get_user_by_pid(ConnPid),
-    do_say(ConnPid, UserPids, Say, User),
+    {ok, User} = mudes_users:get_user_by_pid(Protocol),
+    do_say(Protocol, UserPids, Say, User),
     {next_state, authenticated, State};
-process_command(Cmd, _, State = #state{conn = ConnPid}) ->
-    mudes_connection:send_text(ConnPid, <<"Unknown command: ", Cmd/binary>>),
+process_command(Cmd, _, State = #state{protocol = Protocol}) ->
+    telnet_protocol:send_text(Protocol, <<"Unknown command: ", Cmd/binary>>),
     {next_state, authenticated, State}.
 
-do_say(ConnPid, UserPids, Say, User) ->
-    [do_say_to_user(ConnPid, UserPid, Say, User) || UserPid <- UserPids],
+do_say(Protocol, UserPids, Say, User) ->
+    [do_say_to_user(Protocol, UserPid, Say, User) || UserPid <- UserPids],
     ok.
 
-do_say_to_user(ConnPid, ConnPid, Say, _User) ->
-    mudes_connection:send_text(ConnPid, <<"You say: ", Say/binary>>);
-do_say_to_user(_ConnPid, UserPid, Say, User) ->
-    mudes_connection:send_text(UserPid, <<User/binary, " says: ", Say/binary>>).
+do_say_to_user(Protocol, Protocol, Say, _User) ->
+    telnet_protocol:send_text(Protocol, <<"You say: ", Say/binary>>);
+do_say_to_user(_Protocol, UserPid, Say, User) ->
+    telnet_protocol:send_text(UserPid, <<User/binary, " says: ", Say/binary>>).
