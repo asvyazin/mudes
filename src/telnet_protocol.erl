@@ -1,12 +1,11 @@
 -module(telnet_protocol).
 -author('Alexander Svyazin <guybrush@live.ru>').
--behaviour(cowboy_protocol).
+-behaviour(ranch_protocol).
 
 -export([start_link/4, send_text/2, close/1, send_tokens/2]). %% API
 -export([init/4]).
 
 -include("telnet.hrl").
--include("mudes.hrl").
 
 -spec start_link(pid(), inet:socket(), module(), any()) -> {ok, pid()}.
 start_link(ListenerPid, Socket, Transport, Opts) ->
@@ -25,7 +24,7 @@ send_tokens(Pid, Tokens) ->
 
 -spec init(pid(), inet:socket(), module(), any()) -> ok.
 init(ListenerPid, Socket, Transport, _Opts) ->
-    ok = cowboy:accept_ack(ListenerPid),
+    ok = ranch:accept_ack(ListenerPid),
     {ok, ConnSupRef} = supervisor:start_child(mudes_connections_sup, []),
     {ok, ConnPid} = mudes_connection_fsm:start(self(), ConnSupRef),
     loop(ConnPid, Transport, Socket, <<>>).

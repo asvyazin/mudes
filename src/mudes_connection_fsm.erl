@@ -86,7 +86,7 @@ new_user(Name, State = #state{protocol = Protocol}) ->
     {next_state, wait_password_new, State#state{name = Name}}.
 
 wait_password_new({text, Password}, State = #state{protocol = Protocol}) ->
-    PasswordHash = crypto:md5(Password),
+    PasswordHash = crypto:sha(Password),
     telnet_protocol:send_text(Protocol, <<"Confirm password:">>),
     {next_state, wait_password_new2, State#state{password_hash = PasswordHash}}.
 
@@ -94,8 +94,9 @@ wait_password_new2({text, Password},
 		   State = #state{protocol = Protocol,
 				  name = Name,
 				  password_hash = PasswordHash}) ->
-    case crypto:md5(Password) of
+    case crypto:sha(Password) of
 	PasswordHash ->
+	    mudes_users_db:add(Name, Password),
 	    telnet_protocol:send_text(Protocol, <<"Welcome, ", Name/binary>>),
 	    mudes_users:add_user(Name, Protocol),
 	    {next_state, authenticated, State};

@@ -2,11 +2,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 telnet_string_test() ->
-    Res = telnet:decode(<<"abc">>),
+    Res = telnet:decode(<<"abc\n">>),
     ?assertMatch({ok, {text, <<"abc">>}, <<>>}, Res).
 
 double_iac_test() ->
-    Res = telnet:decode(<<"ab\xff\xffcd">>),
+    Res = telnet:decode(<<"ab\xff\xffcd\n">>),
     ?assertMatch({ok, {text, <<"ab\xffcd">>}, <<>>}, Res).
 
 wont_delimiter_test() ->
@@ -51,23 +51,23 @@ cr2_test() ->
 
 encode_test() ->
     Res = telnet:encode([{text, <<"abc">>}, {text, <<"def">>}]),
-    ?assertMatch({ok, <<"abc\r\ndef\r\n">>}, Res).
+    ?assertMatch([<<"abc\r\n">>, <<"def\r\n">>], Res).
 
 encode_wont_test() ->
     Res = telnet:encode([{text, <<"abc">>}, {wont, $c}]),
-    ?assertMatch({ok, <<"abc\r\n\xff\xfcc">>}, Res).
+    ?assertMatch([<<"abc\r\n">>, <<"\xff\xfcc">>], Res).
 
 encode_command_test() ->
     Res = telnet:encode([{text, <<"abc">>}, {command, $c}]),
-    ?assertMatch({ok, <<"abc\r\n\xffc">>}, Res).
+    ?assertMatch([<<"abc\r\n">>, <<"\xffc">>], Res).
 
 encode_text_iac_test() ->
     Res = telnet:encode([{text, <<"abc\xffdef">>}]),
-    ?assertMatch({ok, <<"abc\xff\xffdef\r\n">>}, Res).
+    ?assertMatch([<<"abc\xff\xffdef\r\n">>], Res).
 
 encode_sb_test() ->
     Res = telnet:encode([{subnego, $c, <<"abc">>}]),
-    ?assertMatch({ok, <<"\xff\xfacabc\xff\xf0">>}, Res).
+    ?assertMatch([<<"\xff\xfacabc\xff\xf0">>], Res).
 
 empty_test() ->
     Res = telnet:decode(<<>>),

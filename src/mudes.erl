@@ -8,7 +8,7 @@ start() ->
     application:start(syntax_tools),
     application:start(crypto),
     application:start(lager),
-    application:start(cowboy),
-    application:start(mongodb),
+    application:start(ranch),
+    application:start(mnesia),
     application:start(mudes),
-    cowboy:start_listener(mudes, 1, cowboy_tcp_transport, [{port, 10101}], telnet_protocol, []).
+    ranch:start_listener(mudes, 1, ranch_tcp, [{port, 10101}], telnet_protocol, []).
