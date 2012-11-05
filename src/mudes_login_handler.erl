@@ -23,10 +23,10 @@ handle_cast({input, {text, Name}}, State = #state{conn_pid = ConnPid, current_st
     case mudes_users_db:exists(Name) of
 	true ->
 	    mudes_connection:send_text(ConnPid, <<"Enter your password:">>),
-	    {ok, State#state{current_state = wait_password_existing, name = Name}};
+	    {noreply, State#state{current_state = wait_password_existing, name = Name}};
 	false ->
 	    mudes_connection:send_text(ConnPid, <<"Will register new user. Enter your password:">>),
-	    {ok, State#state{current_state = wait_password_new, name = Name}}
+	    {noreply, State#state{current_state = wait_password_new, name = Name}}
     end;
 handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_existing, name = Name}) ->
     case mudes_users_db:check_password(Name, Password) of
@@ -42,7 +42,7 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
 handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_new, name = Name}) ->
     PasswordHash = crypto:sha(Password),
     mudes_connection:send_text(ConnPid, <<"Confirm password:">>),
-    {ok, State#state{current_state = wait_password_new2, password_hash = PasswordHash}};
+    {noreply, State#state{current_state = wait_password_new2, password_hash = PasswordHash}};
 handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_new2, name = Name, password_hash = PasswordHash}) ->
     case crypto:sha(Password) of
 	PasswordHash ->

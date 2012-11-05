@@ -19,4 +19,4 @@ init([ConnPid]) ->
 
 handle_cast({input, {text, Text}}, State = #state{conn_pid = ConnPid}) ->
     mudes_connection:send_text(ConnPid, <<"What do you mean: ", Text/binary>>),
-    {ok, State}.
+    {noreply, State}.

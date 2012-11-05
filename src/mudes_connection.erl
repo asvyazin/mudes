@@ -36,17 +36,17 @@ handle_cast(quit, State) ->
     {stop, normal, State};
 handle_cast({send, Data}, State = #state{socket = Socket, transport = Transport}) ->
     ok = Transport:send(Socket, telnet:encode(Data)),
-    {ok, State};
+    {noreply, State};
 handle_cast({set_handler, HandlerPid}, State) ->
-    {ok, State#state{handler = HandlerPid}}.
+    {noreply, State#state{handler = HandlerPid}}.
 
 handle_info(timeout, State = #state{listener_pid = ListenerPid, socket = Socket, transport = Transport}) ->
     ok = ranch:accept_ack(ListenerPid),
     ok = set_active(Socket, Transport),
-    {ok, State};
+    {noreply, State};
 handle_info({tcp, _Socket, Data}, State = #state{handler = HandlerPid}) ->
     decode_buffer(Data, HandlerPid),
-    {ok, State}.
+    {noreply, State}.
     
 decode_buffer(Buffer, HandlerPid) ->
     case telnet:decode(Buffer) of
