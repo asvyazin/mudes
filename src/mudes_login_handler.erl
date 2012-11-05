@@ -39,7 +39,7 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
 	    mudes_connection:send_text(ConnPid, <<"Invalid password, bye!">>),
 	    {stop, invalid_password, State}
     end;
-handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_new, name = Name}) ->
+handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_new}) ->
     PasswordHash = crypto:sha(Password),
     mudes_connection:send_text(ConnPid, <<"Confirm password:">>),
     {noreply, State#state{current_state = wait_password_new2, password_hash = PasswordHash}};
