@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% API
--export([send/2, set_handler/2, quit/1]).
+-export([send/2, send_text/2, send_tokens/2, set_handler/2, quit/1]).
 
 %% gen_server
 -export([init/1, handle_info/2, handle_cast/2]).
@@ -15,6 +15,12 @@ start_link(ListenerPid, Socket, Transport, Opts) ->
 
 send(Pid, Data) ->
     gen_server:cast(Pid, {send, Data}).
+
+send_text(Pid, Text) ->
+    send_tokens(Pid, [{text, Text}]).
+
+send_tokens(Pid, Tokens) ->
+    send(Pid, telnet:encode(Tokens)).
 
 set_handler(Pid, HandlerPid) ->
     gen_server:cast(Pid, {set_handler, HandlerPid}).
@@ -40,11 +46,12 @@ handle_cast({set_handler, HandlerPid}, State) ->
     {ok, State#state{handler = HandlerPid}}.
 
 handle_info({tcp, _Socket, Data}, State = #state{handler = HandlerPid}) ->
-    case telnet:decode(Buffer) of
-	{more, Rest} ->
-	    loop(ConnPid, Transport, Socket, Rest);
-	{ok, Token, Rest} ->
-	    mudes_connection_fsm:token(ConnPid, Token),
-	    decode_buffer(ConnPid, Transport, Socket, Rest)
-    end.
+    decode_buffer(Data, HandlerPid),
+    {ok, State}.
     
+decode_buffer(Buffer, HandlerPid) ->
+    case telnet:decode(Buffer) of
+	{ok, Input, Rest} ->
+	    mudes_handler:input(HandlerPid, Input),
+	    decode_buffer(Rest, HandlerPid)
+    end.
