@@ -17,6 +17,10 @@ start_link(ConnPid) ->
 init([ConnPid]) ->
     {ok, #state{conn_pid = ConnPid}}.
 
+handle_cast({input, {text, <<"quit">>}}, State = #state{conn_pid = ConnPid}) ->
+    mudes_connection:send_text(ConnPid, <<"Bye!">>),
+    mudes_connection:quit(ConnPid),
+    {noreply, State};
 handle_cast({input, {text, Text}}, State = #state{conn_pid = ConnPid}) ->
-    mudes_connection:send_text(ConnPid, <<"What do you mean: ", Text/binary>>),
+    mudes_connection:send_text(ConnPid, <<"I don't understand: ", Text/binary>>),
     {noreply, State}.

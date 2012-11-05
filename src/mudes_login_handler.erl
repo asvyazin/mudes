@@ -19,7 +19,6 @@ init([ConnPid]) ->
     {ok, #state{conn_pid = ConnPid, current_state = connected}}.
 
 handle_cast({input, {text, Name}}, State = #state{conn_pid = ConnPid, current_state = connected}) ->
-    lager:debug("name entered: ~p", [Name]),
     case mudes_users_db:exists(Name) of
 	true ->
 	    mudes_connection:send_text(ConnPid, <<"Enter your password:">>),

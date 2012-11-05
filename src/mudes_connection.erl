@@ -6,7 +6,7 @@
 -export([start_link/4, send/2, send_text/2, set_handler/2, quit/1]).
 
 %% gen_server
--export([init/1, handle_info/2, handle_cast/2]).
+-export([init/1, handle_info/2, handle_cast/2, terminate/2]).
 
 -record(state, {listener_pid, socket, transport, handler, buffer}).
 
@@ -56,3 +56,6 @@ decode_buffer(Buffer, HandlerPid) ->
 	{more, Rest} ->
 	    {ok, Rest}
     end.
+
+terminate(normal, _State) ->
+    ok.
