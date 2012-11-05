@@ -7,7 +7,7 @@
 -export([start_link/1]).
 
 %% gen_server
--export([init/1, handle_cast/2, handle_call/3]).
+-export([init/1, handle_cast/2]).
 
 -record(state, {conn_pid, current_state, name, password_hash}).
 
@@ -33,7 +33,7 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
 	true ->
 	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
 	    mudes_users:add_user(Name, ConnPid),
-	    authenticated(),
+	    authenticated(ConnPid),
 	    {stop, normal, State};
 	false ->
 	    mudes_connection:send_text(ConnPid, <<"Invalid password, bye!">>),
@@ -49,12 +49,12 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
 	    mudes_users_db:add(Name, Password),
 	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
 	    mudes_users:add_user(Name, ConnPid),
-	    authenticated();
+	    authenticated(ConnPid);
 	_ ->
 	    mudes_connection:send_text(ConnPid, <<"Password does not match, bye!">>),
 	    {stop, password_does_not_match, State}
     end.
 
-authenticated() ->
+authenticated(ConnPid) ->
     {ok, CommandHandler} = mudes_command_handler:start_link(ConnPid),
     mudes_connection:set_handler(ConnPid, CommandHandler).    

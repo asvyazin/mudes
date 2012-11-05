@@ -7,7 +7,7 @@
 -export([start_link/1]).
 
 %% gen_server
--export([init/1, handle_cast/2, handle_call/3]).
+-export([init/1, handle_cast/2]).
 
 -record(state, {conn_pid}).
 
