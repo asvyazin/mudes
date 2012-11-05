@@ -7,7 +7,7 @@
 -export([start_link/1]).
 
 %% gen_server
--export([init/1, handle_cast/2]).
+-export([init/1, handle_cast/2, terminate/2]).
 
 -record(state, {conn_pid, current_state, name, password_hash}).
 
@@ -58,3 +58,6 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
 authenticated(ConnPid) ->
     {ok, CommandHandler} = mudes_command_handler:start_link(ConnPid),
     mudes_connection:set_handler(ConnPid, CommandHandler).    
+
+terminate(normal, _State) ->
+    ok.

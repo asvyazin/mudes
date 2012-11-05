@@ -43,8 +43,9 @@ handle_cast({set_handler, HandlerPid}, State) ->
 handle_info({shoot, ListenerPid}, State = #state{listener_pid = ListenerPid, socket = Socket, transport = Transport}) ->
     ok = set_active(Socket, Transport),
     {noreply, State};
-handle_info({tcp, _Socket, Data}, State = #state{handler = HandlerPid, buffer = Buffer}) ->
+handle_info({tcp, _Socket, Data}, State = #state{handler = HandlerPid, buffer = Buffer, socket = Socket, transport = Transport}) ->
     {ok, Rest} = decode_buffer(<<Buffer/binary, Data/binary>>, HandlerPid),
+    ok = set_active(Socket, Transport),
     {noreply, State#state{buffer = Rest}}.
     
 decode_buffer(Buffer, HandlerPid) ->
