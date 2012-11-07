@@ -22,5 +22,15 @@ handle_cast({input, {text, <<"quit">>}}, State = #state{conn_pid = ConnPid}) ->
     mudes_connection:quit(ConnPid),
     {noreply, State};
 handle_cast({input, {text, Text}}, State = #state{conn_pid = ConnPid}) ->
-    mudes_connection:send_text(ConnPid, <<"I don't understand: ", Text/binary>>),
+    Parsed = commands:parse(Text),
+    process_command(Parsed, ConnPid, Text),
     {noreply, State}.
+
+process_command(quit, ConnPid, _Orig) -> 
+    mudes_connection:quit(ConnPid);
+process_command({quit, _, _}, ConnPid, _Orig) ->
+    mudes_connection:quit(ConnPid);
+process_command({say, Text, _}, ConnPid, _Orig) ->
+    lager:info("saying ~p", [Text]);
+process_command(_Parsed, ConnPid, Orig) -> 
+    mudes_connection:send_text(ConnPid, <<"Unknown command: ", Orig/binary>>).

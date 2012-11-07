@@ -1,0 +1,7 @@
+command <- quit / say;
+
+quit <- "quit" `quit`;
+
+say <- "say" space+ `say`;
+
+space <- ' ' / '\t';
