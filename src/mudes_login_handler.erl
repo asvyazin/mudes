@@ -48,7 +48,8 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
 	    mudes_users_db:add(Name, Password),
 	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
 	    mudes_users:add_user(Name, ConnPid),
-	    authenticated(ConnPid);
+	    authenticated(ConnPid),
+	    {stop, normal, State};
 	_ ->
 	    mudes_connection:send_text(ConnPid, <<"Password does not match, bye!">>),
 	    {stop, password_does_not_match, State}
