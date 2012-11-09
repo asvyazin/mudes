@@ -30,7 +30,7 @@ handle_cast({input, {text, Name}}, State = #state{conn_pid = ConnPid, current_st
 handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_existing, name = Name}) ->
     case mudes_users_db:check_password(Name, Password) of
 	true ->
-	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
+	    mudes_connection:send_text(ConnPid, [<<"Welcome, ">>, Name]),
 	    mudes_users:add_user(Name, ConnPid),
 	    authenticated(ConnPid),
 	    {stop, normal, State};
@@ -46,7 +46,7 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
     case crypto:sha(Password) of
 	PasswordHash ->
 	    mudes_users_db:add(Name, Password),
-	    mudes_connection:send_text(ConnPid, <<"Welcome, ", Name/binary>>),
+	    mudes_connection:send_text(ConnPid, [<<"Welcome, ">>, Name]),
 	    mudes_users:add_user(Name, ConnPid),
 	    authenticated(ConnPid),
 	    {stop, normal, State};

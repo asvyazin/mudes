@@ -1,1 +1,1 @@
-erl -name mudes@127.0.0.1 -pz ebin -pz deps/*/ebin
+erl -sname mudes -pz ebin -pz deps/*/ebin

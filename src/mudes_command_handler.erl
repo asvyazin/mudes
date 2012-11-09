@@ -25,20 +25,19 @@ handle_cast({input, {text, Text}}, State = #state{conn_pid = ConnPid}) ->
 process_command(quit, ConnPid, _Orig) -> 
     quit(ConnPid);
 process_command({say, Text}, ConnPid, _Orig) ->
-    lager:info("saying ~p", [Text]),
     say(ConnPid, Text);
 process_command(_Parsed, ConnPid, Orig) -> 
-    mudes_connection:send_text(ConnPid, <<"Unknown command: ", Orig/binary>>).
+    mudes_connection:send_text(ConnPid, [<<"Unknown command: ">>, Orig]).
 
 quit(ConnPid) ->
     mudes_connection:send_text(ConnPid, <<"Bye!">>),
     mudes_connection:quit(ConnPid).
 
 say(ConnPid, Text) ->
-    UserPids = mudes_users:get_pids(),
+    {ok, UserPids} = mudes_users:get_pids(),
     [say(Pid, ConnPid, Text) || Pid <- UserPids].
 
 say(ConnPid, ConnPid, Text) ->
-    mudes_connection:send_text(ConnPid, <<"You say: ", Text/binary>>);
+    mudes_connection:send_text(ConnPid, [<<"You say: ">>, Text]);
 say(Pid, _ConnPid, Text) ->
-    mudes_connection:send_text(Pid, <<"Someone say: ", Text/binary>>).
+    mudes_connection:send_text(Pid, [<<"Someone say: ">>, Text]).

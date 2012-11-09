@@ -16,11 +16,13 @@ encode({wont, C}) ->
 encode({command, C}) ->
     <<?IAC, C>>;
 encode({subnego, C, Data}) ->
-    <<?IAC, ?SB, C, Data/binary, ?IAC, ?SE>>;
+    [<<?IAC, ?SB, C>>, Data, <<?IAC, ?SE>>];
 encode({text, Text}) ->
     Text2 = double_iac(Text),
-    <<Text2/binary, ?CR, ?LF>>.
+    [Text2, <<?CR, ?LF>>].
 
+double_iac(L) when is_list(L) ->
+    [double_iac(T) || T <- L];
 double_iac(Text) ->
     double_iac(Text, <<>>).
 
