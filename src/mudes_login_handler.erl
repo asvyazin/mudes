@@ -56,8 +56,7 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
     end.
 
 authenticated(ConnPid) ->
-    {ok, CommandHandler} = mudes_command_handler:start_link(ConnPid),
-    mudes_connection:set_handler(ConnPid, CommandHandler).    
+    mudes_connection:set_handler(ConnPid, mudes_command_handler, [ConnPid]).
 
 terminate(normal, _State) ->
     ok.

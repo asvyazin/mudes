@@ -1,1 +1,1 @@
-erl -name mudes@127.0.0.1 -pz ebin -pz deps/edown/ebin -pz deps/gen_leader/ebin -pz deps/gproc/ebin -pz deps/lager/ebin -pz deps/ranch/ebin -pz deps/neotoma/ebin
+erl -sname mudes -pz ebin -pz deps/edown/ebin -pz deps/gen_leader/ebin -pz deps/gproc/ebin -pz deps/lager/ebin -pz deps/ranch/ebin -pz deps/neotoma/ebin

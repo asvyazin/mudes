@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/4, send/2, send_text/2, set_handler/2, quit/1]).
+-export([start_link/4, send/2, send_text/2, set_handler/3, quit/1]).
 
 %% gen_server
 -export([init/1, handle_info/2, handle_cast/2, terminate/2]).
@@ -19,15 +19,15 @@ send(Pid, Data) ->
 send_text(Pid, Text) ->
     send(Pid, {text, Text}).
 
-set_handler(Pid, HandlerPid) ->
-    gen_server:cast(Pid, {set_handler, HandlerPid}).
-
 quit(Pid) ->
     gen_server:cast(Pid, quit).
 
+set_handler(ConnPid, Module, Args) ->
+    gen_server:cast(ConnPid, {set_handler, Module, Args}).
+
 init([ListenerPid, Socket, Transport, _Opts]) ->
-    {ok, HandlerPid} = mudes_login_handler:start_link(self()),
-    {ok, #state{listener_pid = ListenerPid, socket = Socket, transport = Transport, handler = HandlerPid, buffer = <<>>}}.
+    set_handler(self(), mudes_login_handler, [self()]),
+    {ok, #state{listener_pid = ListenerPid, socket = Socket, transport = Transport, buffer = <<>>}}.
 
 set_active(Socket, Transport) ->
     Transport:setopts(Socket, [{active, once}]).
@@ -37,7 +37,8 @@ handle_cast(quit, State) ->
 handle_cast({send, Data}, State = #state{socket = Socket, transport = Transport}) ->
     ok = Transport:send(Socket, telnet:encode(Data)),
     {noreply, State};
-handle_cast({set_handler, HandlerPid}, State) ->
+handle_cast({set_handler, Module, Args}, State = #state{}) ->
+    {ok, HandlerPid} = gen_server:start_link(Module, Args, []),
     {noreply, State#state{handler = HandlerPid}}.
 
 handle_info({shoot, ListenerPid}, State = #state{listener_pid = ListenerPid, socket = Socket, transport = Transport}) ->

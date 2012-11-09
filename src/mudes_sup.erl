@@ -23,5 +23,4 @@ init([]) ->
     {ok, {{one_for_one, 5, 10},
 	  [?CHILD(mudes_zones_sup, supervisor),
 	   ?CHILD(mudes_users, worker),
-	   ?CHILD(mudes_users_db, worker),
-	   ?CHILD(mudes_connections_sup, supervisor)]}}.
+	   ?CHILD(mudes_users_db, worker)]}}.
