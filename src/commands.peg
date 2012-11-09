@@ -2,6 +2,10 @@ command <- quit / say;
 
 quit <- "quit" `quit`;
 
-say <- "say" space+ `say`;
+say <- "say" space+ text:text
+`[_, _, {text, Text}] = Node,
+{say, Text}`;
 
 space <- ' ' / '\t';
+
+text <- .*;

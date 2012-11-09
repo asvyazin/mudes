@@ -25,10 +25,14 @@ parse(Input) when is_binary(Input) ->
   p(Input, Index, 'quit', fun(I,D) -> (p_string(<<"quit">>))(I,D) end, fun(Node, Idx) -> quit end).
 
 'say'(Input, Index) ->
-  p(Input, Index, 'say', fun(I,D) -> (p_seq([p_string(<<"say">>), p_one_or_more(fun 'space'/2)]))(I,D) end, fun(Node, Idx) -> say end).
+  p(Input, Index, 'say', fun(I,D) -> (p_seq([p_string(<<"say">>), p_one_or_more(fun 'space'/2), p_label('text', fun 'text'/2)]))(I,D) end, fun(Node, Idx) -> [_, _, {text, Text}] = Node,
+{say, Text} end).
 
 'space'(Input, Index) ->
   p(Input, Index, 'space', fun(I,D) -> (p_choose([p_string(<<"\s">>), p_string(<<"\t">>)]))(I,D) end, fun(Node, Idx) -> transform('space', Node, Idx) end).
+
+'text'(Input, Index) ->
+  p(Input, Index, 'text', fun(I,D) -> (p_zero_or_more(p_anything()))(I,D) end, fun(Node, Idx) -> transform('text', Node, Idx) end).
 
 
 transform(_,Node,_Index) -> Node.

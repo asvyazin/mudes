@@ -51,8 +51,13 @@ handle_info({tcp, _Socket, Data}, State = #state{handler = HandlerPid, buffer = 
 decode_buffer(Buffer, HandlerPid) ->
     case telnet:decode(Buffer) of
 	{ok, Input, Rest} ->
-	    mudes_handler:input(HandlerPid, Input),
-	    decode_buffer(Rest, HandlerPid);
+	    case mudes_telnet_options:process(Input, self()) of
+		skip ->
+		    mudes_handler:input(HandlerPid, Input),
+		    decode_buffer(Rest, HandlerPid);
+		ok ->
+		    decode_buffer(Rest, HandlerPid)
+	    end;
 	{more, Rest} ->
 	    {ok, Rest}
     end.

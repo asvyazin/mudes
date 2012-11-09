@@ -24,9 +24,7 @@ handle_cast({input, {text, Text}}, State = #state{conn_pid = ConnPid}) ->
 
 process_command(quit, ConnPid, _Orig) -> 
     quit(ConnPid);
-process_command({quit, _, _}, ConnPid, _Orig) ->
-    quit(ConnPid);
-process_command({say, Text, _}, ConnPid, _Orig) ->
+process_command({say, Text}, ConnPid, _Orig) ->
     lager:info("saying ~p", [Text]),
     say(ConnPid, Text);
 process_command(_Parsed, ConnPid, Orig) -> 
