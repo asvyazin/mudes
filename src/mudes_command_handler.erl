@@ -34,10 +34,11 @@ quit(ConnPid) ->
     mudes_connection:quit(ConnPid).
 
 say(ConnPid, Text) ->
+    {ok, Me} = mudes_users:get_user_by_pid(ConnPid),
     {ok, UserPids} = mudes_users:get_pids(),
-    [say(Pid, ConnPid, Text) || Pid <- UserPids].
+    [say(Me, Pid, ConnPid, Text) || Pid <- UserPids].
 
-say(ConnPid, ConnPid, Text) ->
+say(_Me, ConnPid, ConnPid, Text) ->
     mudes_connection:send_text(ConnPid, [<<"You say: ">>, Text]);
-say(Pid, _ConnPid, Text) ->
-    mudes_connection:send_text(Pid, [<<"Someone say: ">>, Text]).
+say(Me, Pid, _ConnPid, Text) ->
+    mudes_connection:send_text(Pid, [Me, <<" say: ">>, Text]).
