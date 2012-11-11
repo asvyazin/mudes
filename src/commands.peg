@@ -1,11 +1,47 @@
-command <- quit / say;
+command <- quit / say / look;
 
 quit <- "quit" `quit`;
 
-say <- "say" space+ text:text
+say <- "say" space text:text
 `[_, _, {text, Text}] = Node,
 {say, Text}`;
 
-space <- ' ' / '\t';
+space <- [ \t]+;
 
-text <- .*;
+text <- .+;
+
+look <- "look" lookTarget?
+`case Node of
+      "look" -> look;
+      ["look", Target] -> {look, Target}
+end`;
+
+lookTarget <- space (lookAt / lookIn)
+`
+[_, Target] = Node,
+Target
+`;
+
+lookAt <- "at" space at:text / at:text
+`
+get_by_tag(at, Node)
+`;
+
+lookIn <- "in" space in:text
+`
+get_by_tag(in, Node)
+`;
+
+`
+get_by_tag(Tag, Node) ->
+  case Node of
+    {Tag, V} -> {Tag, V};
+    [F, T] ->
+      VV = get_by_tag(Tag, F),
+      case VV of
+        undefined -> get_by_tag(Tag, T);
+        _ -> VV
+      end;
+    _ -> undefined
+  end.
+`

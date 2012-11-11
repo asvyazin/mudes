@@ -5,6 +5,18 @@
 
 
 
+get_by_tag(Tag, Node) ->
+  case Node of
+    {Tag, V} -> {Tag, V};
+    [F, T] ->
+      VV = get_by_tag(Tag, F),
+      case VV of
+        undefined -> get_by_tag(Tag, T);
+        _ -> VV
+      end;
+    _ -> undefined
+  end.
+
 -spec file(file:name()) -> any().
 file(Filename) -> {ok, Bin} = file:read_file(Filename), parse(Bin).
 
@@ -19,20 +31,42 @@ parse(Input) when is_binary(Input) ->
   release_memo(), Result.
 
 'command'(Input, Index) ->
-  p(Input, Index, 'command', fun(I,D) -> (p_choose([fun 'quit'/2, fun 'say'/2]))(I,D) end, fun(Node, Idx) -> transform('command', Node, Idx) end).
+  p(Input, Index, 'command', fun(I,D) -> (p_choose([fun 'quit'/2, fun 'say'/2, fun 'look'/2]))(I,D) end, fun(Node, Idx) -> transform('command', Node, Idx) end).
 
 'quit'(Input, Index) ->
   p(Input, Index, 'quit', fun(I,D) -> (p_string(<<"quit">>))(I,D) end, fun(Node, Idx) -> quit end).
 
 'say'(Input, Index) ->
-  p(Input, Index, 'say', fun(I,D) -> (p_seq([p_string(<<"say">>), p_one_or_more(fun 'space'/2), p_label('text', fun 'text'/2)]))(I,D) end, fun(Node, Idx) -> [_, _, {text, Text}] = Node,
+  p(Input, Index, 'say', fun(I,D) -> (p_seq([p_string(<<"say">>), fun 'space'/2, p_label('text', fun 'text'/2)]))(I,D) end, fun(Node, Idx) -> [_, _, {text, Text}] = Node,
 {say, Text} end).
 
 'space'(Input, Index) ->
-  p(Input, Index, 'space', fun(I,D) -> (p_choose([p_string(<<"\s">>), p_string(<<"\t">>)]))(I,D) end, fun(Node, Idx) -> transform('space', Node, Idx) end).
+  p(Input, Index, 'space', fun(I,D) -> (p_one_or_more(p_charclass(<<"[\s\t]">>)))(I,D) end, fun(Node, Idx) -> transform('space', Node, Idx) end).
 
 'text'(Input, Index) ->
-  p(Input, Index, 'text', fun(I,D) -> (p_zero_or_more(p_anything()))(I,D) end, fun(Node, Idx) -> transform('text', Node, Idx) end).
+  p(Input, Index, 'text', fun(I,D) -> (p_one_or_more(p_anything()))(I,D) end, fun(Node, Idx) -> transform('text', Node, Idx) end).
+
+'look'(Input, Index) ->
+  p(Input, Index, 'look', fun(I,D) -> (p_seq([p_string(<<"look">>), p_optional(fun 'lookTarget'/2)]))(I,D) end, fun(Node, Idx) -> case Node of
+      "look" -> look;
+      ["look", Target] -> {look, Target}
+end end).
+
+'lookTarget'(Input, Index) ->
+  p(Input, Index, 'lookTarget', fun(I,D) -> (p_seq([fun 'space'/2, p_choose([fun 'lookAt'/2, fun 'lookIn'/2])]))(I,D) end, fun(Node, Idx) -> 
+[_, Target] = Node,
+Target
+ end).
+
+'lookAt'(Input, Index) ->
+  p(Input, Index, 'lookAt', fun(I,D) -> (p_choose([p_seq([p_string(<<"at">>), fun 'space'/2, p_label('at', fun 'text'/2)]), p_label('at', fun 'text'/2)]))(I,D) end, fun(Node, Idx) -> 
+get_by_tag(at, Node)
+ end).
+
+'lookIn'(Input, Index) ->
+  p(Input, Index, 'lookIn', fun(I,D) -> (p_seq([p_string(<<"in">>), fun 'space'/2, p_label('in', fun 'text'/2)]))(I,D) end, fun(Node, Idx) -> 
+get_by_tag(in, Node)
+ end).
 
 
 transform(_,Node,_Index) -> Node.
