@@ -12,11 +12,11 @@ text <- .+;
 
 look <- "look" lookTarget?
 `case Node of
-      "look" -> look;
-      ["look", Target] -> {look, Target}
+      [<<"look">>, []] -> look;
+      [<<"look">>, Target] -> {look, Target}
 end`;
 
-lookTarget <- space (lookAt / lookIn)
+lookTarget <- space (lookIn / lookAt)
 `
 [_, Target] = Node,
 Target
@@ -36,7 +36,7 @@ get_by_tag(in, Node)
 get_by_tag(Tag, Node) ->
   case Node of
     {Tag, V} -> {Tag, V};
-    [F, T] ->
+    [F | T] ->
       VV = get_by_tag(Tag, F),
       case VV of
         undefined -> get_by_tag(Tag, T);

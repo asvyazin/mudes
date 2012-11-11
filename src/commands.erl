@@ -8,7 +8,7 @@
 get_by_tag(Tag, Node) ->
   case Node of
     {Tag, V} -> {Tag, V};
-    [F, T] ->
+    [F | T] ->
       VV = get_by_tag(Tag, F),
       case VV of
         undefined -> get_by_tag(Tag, T);
@@ -48,12 +48,12 @@ parse(Input) when is_binary(Input) ->
 
 'look'(Input, Index) ->
   p(Input, Index, 'look', fun(I,D) -> (p_seq([p_string(<<"look">>), p_optional(fun 'lookTarget'/2)]))(I,D) end, fun(Node, Idx) -> case Node of
-      "look" -> look;
-      ["look", Target] -> {look, Target}
+      [<<"look">>, []] -> look;
+      [<<"look">>, Target] -> {look, Target}
 end end).
 
 'lookTarget'(Input, Index) ->
-  p(Input, Index, 'lookTarget', fun(I,D) -> (p_seq([fun 'space'/2, p_choose([fun 'lookAt'/2, fun 'lookIn'/2])]))(I,D) end, fun(Node, Idx) -> 
+  p(Input, Index, 'lookTarget', fun(I,D) -> (p_seq([fun 'space'/2, p_choose([fun 'lookIn'/2, fun 'lookAt'/2])]))(I,D) end, fun(Node, Idx) -> 
 [_, Target] = Node,
 Target
  end).
