@@ -30,12 +30,10 @@ handle_cast({input, {text, Name}}, State = #state{conn_pid = ConnPid, current_st
 handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_existing, name = Name}) ->
     case mudes_users_db:check_password(Name, Password) of
 	true ->
-	    mudes_connection:send_text(ConnPid, [<<"Welcome, ">>, Name]),
-	    mudes_users:add_user(Name, ConnPid),
-	    authenticated(ConnPid),
+	    mudes_events:notify(user_authenticated, {user_authenticated, Name, ConnPid}),
 	    {stop, normal, State};
 	false ->
-	    mudes_connection:send_text(ConnPid, <<"Invalid password, bye!">>),
+	    mudes_events:notify(user_authentication_failed, {user_authentication_failed, Name, ConnPid, invalid_password}),
 	    {stop, invalid_password, State}
     end;
 handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_new}) ->
@@ -45,18 +43,14 @@ handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, curren
 handle_cast({input, {text, Password}}, State = #state{conn_pid = ConnPid, current_state = wait_password_new2, name = Name, password_hash = PasswordHash}) ->
     case crypto:sha(Password) of
 	PasswordHash ->
+	    mudes_events:notify(new_user, {new_user, Name, Password, ConnPid}),
 	    mudes_users_db:add(Name, Password),
-	    mudes_connection:send_text(ConnPid, [<<"Welcome, ">>, Name]),
-	    mudes_users:add_user(Name, ConnPid),
-	    authenticated(ConnPid),
+	    mudes_events:notify(user_authenticated, {user_authenticated, Name, ConnPid}),
 	    {stop, normal, State};
 	_ ->
-	    mudes_connection:send_text(ConnPid, <<"Password does not match, bye!">>),
+	    mudes_events:notify(user_authentication_failed, {user_authentication_failed, Name, ConnPid, password_does_not_match}),
 	    {stop, password_does_not_match, State}
     end.
-
-authenticated(ConnPid) ->
-    mudes_connection:set_handler(ConnPid, mudes_command_handler, [ConnPid]).
 
 terminate(normal, _State) ->
     ok.

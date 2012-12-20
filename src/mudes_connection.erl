@@ -26,7 +26,6 @@ set_handler(ConnPid, Module, Args) ->
     gen_server:cast(ConnPid, {set_handler, Module, Args}).
 
 init([ListenerPid, Socket, Transport, _Opts]) ->
-    set_handler(self(), mudes_login_handler, [self()]),
     {ok, #state{listener_pid = ListenerPid, socket = Socket, transport = Transport, buffer = <<>>}}.
 
 set_active(Socket, Transport) ->
@@ -63,5 +62,6 @@ decode_buffer(Buffer, HandlerPid) ->
 	    {ok, Rest}
     end.
 
-terminate(normal, _State) ->
+terminate(Reason, _State) ->
+    mudes_events:notify(connection_closed, {connection_closed, self(), Reason}),
     ok.

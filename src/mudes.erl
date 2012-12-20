@@ -10,5 +10,6 @@ start() ->
     application:start(lager),
     application:start(ranch),
     application:start(mnesia),
+    application:start(gproc),
     application:start(mudes),
     ranch:start_listener(mudes, 1, ranch_tcp, [{port, 10101}], telnet_protocol, []).

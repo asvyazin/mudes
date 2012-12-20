@@ -1,0 +1,5 @@
+{new_user, login, password, conn_pid}
+{new_connection, conn_pid}
+{user_authenticated, login, conn_pid}
+{user_authentication_failed, login, conn_pid, error}
+{connection_closed, conn_pid, reason}
